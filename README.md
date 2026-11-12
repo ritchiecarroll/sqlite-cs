@@ -15,13 +15,25 @@ The status below is measured, and it changes as the work moves. It is stated as 
 | Stage | windows/amd64 |
 |---|---|
 | Native Go build and its own tests | **pass**: 432 tests pass, 4 skip, 0 fail (`go test -count=1 .`, 701 s) |
-| Conversion to C# | **not run yet** |
-| C# build | not reached |
+| Conversion to C# | **refused**: go2cs stops because some types come out as raw Go text (rows S1, S2) |
+| C# build | **fails**. With those spellings hand-corrected for diagnosis, the build fails in the order below, one class at a time |
 | The demo, converted | not reached |
 | Its own tests, converted | not reached |
 
 The first target is windows/amd64: its dependency closure has no cgo and a single assembly file. Other targets follow
 once the first one runs.
+
+### Where the build stops
+
+To see past each failure, the converted C# was corrected by hand, one class at a time, and rebuilt. Those corrections are
+for diagnosis only and are not in this repository. Each class found is reduced to a one-file reproduction in
+[repros/](repros/), with a table of what each does today.
+
+- `github.com/remyoudompheng/bigfft`, `modernc.org/memory`, `github.com/ncruces/go-strftime`, `modernc.org/mathutil`
+  and `modernc.org/libc` build once rows S3-S14 are corrected.
+- `modernc.org/sqlite/lib` (SQLite itself) then stops at rows S15 and S16, down to 16 errors at the last build.
+- Behind those, the converted SQLite is expected to stop at run time at row S1: it calls C function pointers by
+  turning numbers back into Go functions, which go2cs cannot yet do. It has not been run.
 
 ## What is converted
 
