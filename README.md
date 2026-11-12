@@ -1,5 +1,7 @@
 # sqlite-cs
 
+[![converted by go2cs](https://go2cs.net/images/go2cs-badge.svg)](https://go2cs.net)
+
 [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite), the pure-Go SQLite, converted to C# by
 [go2cs](https://github.com/ritchiecarroll/go2cs), and run against its own tests.
 
