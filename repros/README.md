@@ -1,6 +1,7 @@
 # Reproductions
 
-Each failure class found while converting modernc.org/sqlite is reduced to a one-file Go module here, with a green
+Each failure class found while converting modernc.org/sqlite is reduced to a small Go module here (one file, or two
+packages where the class needs a second one), with a green
 control that differs on one axis. Every module runs natively (`go run .` prints the line in its comment). Each class is a
 gap in go2cs, and the fixes go there; this table says what each one does at the go2cs version stated.
 
@@ -23,8 +24,16 @@ building the C#, running it and comparing its output with Go's.
 | S13 | A function ending in a terminating switch whose default falls through: C# sees a reachable end | `s13terminatingfallthrough` | build fails (CS0161) | `s13ctl-terminatingswitch` | libc pthread, 3 functions |
 | S14 | A parallel assignment through dereferenced pointer casts (a swap) | `s14derefswap` | build fails (CS0131) | `s14ctl-derefswaptemp` | libc qsort, 3 swaps |
 | S15 | An alias of an alias of an anonymous struct in one package, the alias declared before and in another file from its target | `s15b-aliasforwardotherfile` | build fails (a `/` in the alias target) | `s15ctl-aliasanonstruct` | lib, 3,330 sites |
-| S16 | An exported field whose type is an unexported alias of an anonymous struct, reached only as that field | `s16b-fieldonlyuse` | build fails (CS0050) | `s16ctl-exportedfieldexportedanon` | lib, 8 types and the types they reach |
+| S16 | An exported field whose type is an unexported alias of an anonymous struct, reached only as that field. go2cs's source generator chooses each declaration's accessibility from its Go name, so changing the C# by hand cannot fix it | `s16b-fieldonlyuse` | build fails (CS0050) | `s16ctl-exportedfieldexportedanon` | lib, 8 types and the types they reach |
+| S17 | A field store through an explicit dereference of a pointer conversion, `(*(*T)(p)).F = x` | `s17explicitderefcastfieldstore` | build fails (CS0131) | `s17ctl-implicitderefcastfieldstore` (`(*T)(p).F = x`) | lib, 929 sites |
+| S18 | Slicing a pointer cast whose C# type name holds a non-ASCII character: one character of the cast is lost | `s18nonasciiptrcastslice` | build fails (CS1003) | `s5ptrnamedarrayslice` (an ASCII name) | the driver, 12 sites (`Δlibc.RawMem`, from go2cs's renamed import) |
+| S19 | An imported package whose name differs from its directory (`modernc.org/sqlite/lib` is `package sqlite3`): references are spelled with the directory name | `s19pkgnamenotdirname` | build fails (CS0246) | `s19ctl-pkgnameisdirname` | the driver, 2 sites |
+| S20 | Slicing a pointer-to-array cast written in extra parentheses, `((*T)(p))[:n]`, or through an explicit dereference, `(*(*T)(p))[:n]`: the whole array is read as a value | `s20parenptrcastslice`, `s20b-derefptrcastslice` | runs, then crashes (AccessViolationException) | `s20ctl-ptrcastslice` | memory (Calloc), libc (5 sites); with a very large array type it overflows at start-up |
+| S21 | A function implemented in assembly (a `.s` file) in a module outside the Go standard library: go2cs converts no assembly, so the call throws | `s21asmfuncinmodule` | runs, then `NotImplementedException` at the call | `s21ctl-gofuncinmodule` (the same function in Go) | golang.org/x/sys/cpu `cpuid` and `xgetbv`, called by its `init` in every program importing modernc.org/libc |
+| S22 | One struct read as another through `unsafe.Pointer` where both hold fixed-size arrays (ccgo's alignment wrapper). The go2cs runtime refuses it: a C# array field is a reference, where Go stores the elements inline | `s22reinterpretarraystruct` | not yet measured (its go2cs run is pending) | `s22ctl-reinterpretscalarstruct` (scalar fields) | lib, at start-up (`_sqlite3DigitPairs`); a runtime design limit, like S1 and S3 |
 
-Rows S2, S9, S12, S15 and S16 are likely one family (alias emission); S5 shares S3's sites. Variants that did NOT reproduce
-their class are kept as negative evidence: `s8b-twotypessamemethod`, `s15aliaschainanonstruct`,
-`s16exportedfieldunexportedanon`.
+Rows S2, S9, S12, S15, S16 and S19 are likely one family (alias and import naming); S5 shares S3's sites; S17 and S20
+share an ingredient (an explicit dereference of a pointer conversion). Variants that did NOT reproduce their class are
+kept as negative evidence: `s8b-twotypessamemethod`, `s15aliaschainanonstruct`, `s16exportedfieldunexportedanon`,
+`s17b-explicitderefplainptr`, `s18b-foreignnamedarrayslice`, `s19b-namedstructrenamedimport`,
+`s19c-childpkgrenamedimport`, `s19d-aliasanoncastlocal`.

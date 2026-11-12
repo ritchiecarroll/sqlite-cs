@@ -18,8 +18,8 @@ The status below is measured, and it changes as the work moves. It is stated as 
 |---|---|
 | Native Go build and its own tests | **pass**: 432 tests pass, 4 skip, 0 fail (`go test -count=1 .`, 701 s) |
 | Conversion to C# | **refused**: go2cs stops because some types come out as raw Go text (rows S1, S2) |
-| C# build | **fails**. With those spellings hand-corrected for diagnosis, the build fails in the order below, one class at a time |
-| The demo, converted | not reached |
+| C# build | **fails**. With each failure class corrected by hand for diagnosis, the whole demo builds |
+| The demo, converted | built only with those hand corrections; it **stops at start-up** (row S22) |
 | Its own tests, converted | not reached |
 
 The first target is windows/amd64: its dependency closure has no cgo and a single assembly file. Other targets follow
@@ -33,9 +33,14 @@ for diagnosis only and are not in this repository. Each class found is reduced t
 
 - `github.com/remyoudompheng/bigfft`, `modernc.org/memory`, `github.com/ncruces/go-strftime`, `modernc.org/mathutil`
   and `modernc.org/libc` build once rows S3-S14 are corrected.
-- `modernc.org/sqlite/lib` (SQLite itself) then stops at rows S15 and S16, down to 16 errors at the last build.
-- Behind those, the converted SQLite is expected to stop at run time at row S1: it calls C function pointers by
-  turning numbers back into Go functions, which go2cs cannot yet do. It has not been run.
+- `modernc.org/sqlite/lib` (SQLite itself) then builds once rows S15-S17 are corrected, and the driver
+  (`modernc.org/sqlite`) once rows S12, S18 and S19 are.
+- The demo then builds. Run, it stops during start-up, before any SQL: first at row S20 (memory's allocator and libc),
+  then at row S21 (`golang.org/x/sys/cpu`), and now at row S22. SQLite's own initialization reads one struct holding a
+  fixed-size array as another, and the go2cs runtime refuses that, loudly, because a C# array field is a reference
+  where Go stores the elements inline.
+- Behind that, row S1 is still ahead: SQLite calls C function pointers by turning numbers back into Go functions,
+  which go2cs cannot yet do.
 
 ## What is converted
 
