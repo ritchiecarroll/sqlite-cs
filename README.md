@@ -42,6 +42,9 @@ for diagnosis only and are not in this repository. Each class found is reduced t
 - Behind that, row S1 is still ahead: SQLite calls C function pointers by turning numbers back into Go functions,
   which go2cs cannot yet do.
 
+Since that measurement, go2cs master fixes rows S2, S5, S9, S12 and S15-S20; [repros/](repros/) names each fix. The
+conversion and the build are re-measured here once the start-up row S22 is fixed too.
+
 ## What is converted
 
 | Module | Version | Role |
