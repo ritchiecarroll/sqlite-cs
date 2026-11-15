@@ -2,13 +2,14 @@
 
 [![converted by go2cs](https://go2cs.net/images/go2cs-badge.svg)](https://go2cs.net)
 
-[modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite), the pure-Go SQLite, converted to C# by
-[go2cs](https://github.com/ritchiecarroll/go2cs), and run against its own tests.
+[modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite), the pure-Go SQLite, converted to C# by [go2cs](https://github.com/ritchiecarroll/go2cs), and run against its own tests.
 
 > [!IMPORTANT]
-> **This is a work in progress, and a proof of what go2cs can do. It is not a SQLite library for .NET.** For that, use
-> [Microsoft.Data.Sqlite](https://learn.microsoft.com/dotnet/standard/data/sqlite/) or another maintained package.
-> This repository is not affiliated with or endorsed by the SQLite project or by the authors of modernc.org/sqlite.
+> **This is a work in progress, and a proof of what go2cs can do, i.e., produce operational .NET code transpiled from
+> Go source. The code in this repository is _not_ intended to replace any existing SQLite libraries for .NET.** To use
+> SQLite in .NET, use the official [Microsoft.Data.Sqlite](https://learn.microsoft.com/dotnet/standard/data/sqlite/) or
+> another maintained package. This repository is not affiliated with or endorsed by the SQLite project or by the
+> authors of modernc.org/sqlite.
 
 ## Status
 
@@ -24,6 +25,11 @@ The status below is measured, and it changes as the work moves. It is stated as 
 
 The first target is windows/amd64: its dependency closure has no cgo and a single assembly file. Other targets follow
 once the first one runs.
+
+Performance parity is not a goal of go2cs, nor of this proof (see the 
+[FAQ](https://go2cs.net/FAQ.html#is-converted-code-slower-than-go)). go2cs strives to bring Go code to .NET with visual
+and behavioral parity first; performance optimizations are currently secondary. Expect the converted SQLite code to
+run slower in .NET than the native Go build.
 
 ### Where the build stops
 
@@ -63,7 +69,7 @@ conversion and the build are re-measured here once the start-up row S22 is fixed
 On windows/amd64 the closure is 23 packages and about 407,000 lines of Go (14 MB); `modernc.org/sqlite/lib` alone is
 331,000 lines. The Go standard library is not converted here: go2cs ships it already converted.
 
-## Why it is hard
+## What makes this conversion hard
 
 The transpiled SQLite keeps C's memory model inside Go: pointers are `uintptr` numbers into libc's own heap, every field
 access is a `*(*T)(unsafe.Pointer(p + offset))`, and function pointers are stored as numbers and turned back into
