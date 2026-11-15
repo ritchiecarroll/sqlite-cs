@@ -15,41 +15,42 @@
 
 The status below is measured, and it changes as the work moves. It is stated as it is today, failures included.
 
-| Stage | windows/amd64 |
-|---|---|
-| Native Go build and its own tests | **pass**: 432 tests pass, 4 skip, 0 fail (`go test -count=1 .`, 701 s) |
-| Conversion to C# | **refused**: go2cs stops because some types come out as raw Go text (rows S1, S2) |
-| C# build | **fails**. With each failure class corrected by hand for diagnosis, the whole demo builds |
-| The demo, converted | built only with those hand corrections; it **stops at start-up** (row S22) |
-| Its own tests, converted | not reached |
+| Stage | windows/amd64 | linux/amd64 |
+|---|---|---|
+| Native Go build and its own tests | **pass**: 432 tests pass, 4 skip, 0 fail (`go test -count=1 .`, Go 1.26.10, 701 s) | not measured here |
+| Conversion to C# | **completes** (`go2cs -recurse`) | **completes** (`go2cs -recurse`) |
+| C# build | **builds**, with hand stand-ins for the walls go2cs has not fixed yet | **builds**, with hand stand-ins, fewer |
+| The demo, converted | output **byte-identical** to native Go, with stand-ins | output **byte-identical** to native Go, with stand-ins |
+| SQLite's own tests, converted | **not yet run** | **not yet run** |
 
-The first target is windows/amd64: its dependency closure has no cgo and a single assembly file. Other targets follow
-once the first one runs.
+The demo runs were measured on 2026-11-15 with Go 1.26.11 and the .NET 10 SDK, comparing the converted program's output
+with the native program's using `cmp`. The Linux runs are on WSL2 (Ubuntu 22.04). The Windows run used an older go2cs
+than the latest Linux run, so it needed more stand-ins, including a conversion option to look past wall W1, which go2cs
+now fixes.
+
+A stand-in is a hand rewrite of the converted C#, made only to see past a wall that go2cs does not yet handle. Stand-ins
+are not in this repository, and each wall's real fix goes into go2cs. In the latest Linux run, the stand-ins left are
+walls W8, W9, W9b, W11, W12 and W12b. Their fixes are in progress in go2cs. [repros/](repros/README.md#walls-met-running-the-demo)
+lists every wall and where it stands.
+
+The converted C# is published in this repository with the go2cs 1.26.11.1 release. Until then, convert it yourself with
+the commands under [Reproduce](#reproduce).
 
 Performance parity is not a goal of go2cs, nor of this proof (see the 
 [FAQ](https://go2cs.net/FAQ.html#is-converted-code-slower-than-go)). go2cs strives to bring Go code to .NET with visual
 and behavioral parity first; performance optimizations are currently secondary. Expect the converted SQLite code to
 run slower in .NET than the native Go build.
 
-### Where the build stops
+### How it got here
 
-To see past each failure, the converted C# was corrected by hand, one class at a time, and rebuilt. Those corrections are
-for diagnosis only and are not in this repository. Each class found is reduced to a one-file reproduction in
-[repros/](repros/), with a table of what each does today.
+The first conversion, on windows/amd64, was refused. Correcting the converted C# by hand past each failure, through the
+build and then start-up, found the classes recorded as rows S1-S23. Each is reduced to a small reproduction in
+[repros/](repros/), and every one is now fixed on go2cs's master branch. The hardest were C function
+pointers kept as numbers (S1), assembly bodies outside the standard library (S21), and structs holding fixed-size
+arrays read through `unsafe.Pointer` (S22).
 
-- `github.com/remyoudompheng/bigfft`, `modernc.org/memory`, `github.com/ncruces/go-strftime`, `modernc.org/mathutil`
-  and `modernc.org/libc` build once rows S3-S14 are corrected.
-- `modernc.org/sqlite/lib` (SQLite itself) then builds once rows S15-S17 are corrected, and the driver
-  (`modernc.org/sqlite`) once rows S12, S18 and S19 are.
-- The demo then builds. Run, it stops during start-up, before any SQL: first at row S20 (memory's allocator and libc),
-  then at row S21 (`golang.org/x/sys/cpu`), and now at row S22. SQLite's own initialization reads one struct holding a
-  fixed-size array as another, and the go2cs runtime refuses that, loudly, because a C# array field is a reference
-  where Go stores the elements inline.
-- Behind that, row S1 is still ahead: SQLite calls C function pointers by turning numbers back into Go functions,
-  which go2cs cannot yet do.
-
-Since that measurement, go2cs master fixes rows S2, S5, S9, S12 and S15-S20; [repros/](repros/) names each fix. The
-conversion and the build are re-measured here once the start-up row S22 is fixed too.
+With those fixed, the demo was run, and each further failure became a wall, W1-W15 and L1. Most are fixed in go2cs;
+the rest are looked past with stand-ins, as above. [repros/](repros/README.md#walls-met-running-the-demo) lists both.
 
 ## What is converted
 
@@ -79,7 +80,10 @@ class found here is recorded and fixed in go2cs where it can be.
 
 ## Reproduce
 
-Requirements: Go 1.26.10, the .NET 10 SDK, and a clone of go2cs.
+Requirements: Go 1.26.11, the .NET 10 SDK, and a clone of [go2cs](https://github.com/ritchiecarroll/go2cs).
+
+The demo opens an in-memory database through `database/sql`, creates a table, inserts three rows and queries them. It
+is not part of modernc.org/sqlite.
 
 ```
 # the native oracle
@@ -92,8 +96,37 @@ go run .
 #   3 gamma -3
 ```
 
-The demo opens an in-memory database through `database/sql`, creates a table, inserts three rows and queries them. It
-is not part of modernc.org/sqlite. The conversion commands are added here when the conversion runs.
+To convert it, build go2cs from its clone, then convert the demo with its whole module closure. `<go2cs>` is the go2cs
+clone, `<bin>` is where the go2cs binary goes, `<demo>` is this repository's `demo/` folder, and `<out>` is an empty
+output folder. Always give `<out>`: without
+it, go2cs writes beside its input.
+
+```
+go -C <go2cs>/src/go2cs build -o <bin>/go2cs .
+cd <demo>
+<bin>/go2cs -recurse -go2cspath <go2cs>/src <demo> <out>
+```
+
+Build the converted demo. On Linux, `-p:GoTargetOS=linux` is required; without it, the Windows flavour of the
+converted standard library is linked.
+
+```
+# Windows
+dotnet build <out>/src/sqlitecs/demo/sqlitecs.demo.csproj -c Release
+# Linux
+dotnet build <out>/src/sqlitecs/demo/sqlitecs.demo.csproj -c Release -p:GoTargetOS=linux
+```
+
+Run the program the build writes under `<out>/.artifacts/bin/`, then compare its output with the native program's:
+
+```
+dotnet <out>/.artifacts/bin/<...>/Release/net10.0/<program>.dll > converted.txt
+(cd <demo> && go run .) > native.txt
+cmp converted.txt native.txt
+```
+
+Until go2cs fixes the remaining walls, the converted C# needs the hand stand-ins described above before it builds and
+runs. They are not published, so at go2cs master these steps stop at the first open wall.
 
 ## Licenses
 
