@@ -19,19 +19,24 @@ The status below is measured, and it changes as the work moves. It is stated as 
 |---|---|---|
 | Native Go build and its own tests | **pass**: 432 tests pass, 4 skip, 0 fail (`go test -count=1 .`, Go 1.26.10, 701 s) | not measured here |
 | Conversion to C# | **completes** (`go2cs -recurse`) | **completes** (`go2cs -recurse`) |
-| C# build | **builds**, with hand stand-ins for the walls go2cs has not fixed yet | **builds**, with hand stand-ins, fewer |
+| C# build | **builds**, with hand stand-ins for the walls go2cs has not fixed yet | **builds**, with hand stand-ins |
 | The demo, converted | output **byte-identical** to native Go, with stand-ins | output **byte-identical** to native Go, with stand-ins |
+| The file-backed demo, converted | the default journal mode matches native Go; the WAL pass then stops at wall W18 | output **byte-identical** to native Go, with stand-ins |
 | SQLite's own tests, converted | **not yet run** | **not yet run** |
 
 The demo runs were measured on 2026-11-15 with Go 1.26.11 and the .NET 10 SDK, comparing the converted program's output
-with the native program's using `cmp`. The Linux runs are on WSL2 (Ubuntu 22.04). The Windows run used an older go2cs
-than the latest Linux run, so it needed more stand-ins, including a conversion option to look past wall W1, which go2cs
-now fixes.
+with the native program's using `cmp`. The Linux runs are on WSL2 (Ubuntu 22.04). Both operating systems used the same
+go2cs: its master branch plus fixes not yet merged there. go2cs master itself currently refuses this conversion at wall
+W17.
+
+In the file-backed demo's WAL pass on Linux, the converted program opens, maps and locks SQLite's shared-memory file
+(`-shm`) exactly as the native program does, call for call, as traced with `strace`: SQLite's WAL index lives in a
+shared memory mapping in the converted program too.
 
 A stand-in is a hand rewrite of the converted C#, made only to see past a wall that go2cs does not yet handle. Stand-ins
-are not in this repository, and each wall's real fix goes into go2cs. In the latest Linux run, the stand-ins left are
-walls W8, W9, W9b, W11, W12 and W12b. Their fixes are in progress in go2cs. [repros/](repros/README.md#walls-met-running-the-demo)
-lists every wall and where it stands.
+are not in this repository, and each wall's real fix goes into go2cs. In the latest runs, the stand-ins left are walls
+W8, W9, W9b, W12 and W12b on both operating systems, and W11 on Linux. Their fixes are in progress in go2cs.
+[repros/](repros/README.md#walls-met-running-the-demo) lists every wall and where it stands.
 
 The converted C# is published in this repository with the go2cs 1.26.11.1 release. Until then, convert it yourself with
 the commands under [Reproduce](#reproduce).
@@ -124,6 +129,11 @@ dotnet <out>/.artifacts/bin/<...>/Release/net10.0/<program>.dll > converted.txt
 (cd <demo> && go run .) > native.txt
 cmp converted.txt native.txt
 ```
+
+`demo/file/` is a second demo, its own Go module, over a database file. In SQLite's default journal mode and then in
+WAL mode, it creates a database file in a new temporary directory, adds a table, an index and three rows, and closes
+it; it then reopens the file, checks its integrity, queries it and removes it. Natively it prints 17 lines. Convert,
+build and compare it the same way, with `demo/file/` as `<demo>`; its project is under `<out>/src/sqlitecs/demo/file/`.
 
 Until go2cs fixes the remaining walls, the converted C# needs the hand stand-ins described above before it builds and
 runs. They are not published, so at go2cs master these steps stop at the first open wall.
