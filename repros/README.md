@@ -68,3 +68,4 @@ published.
 | W14 | a large libc struct kept out of inline arrays reads null fields | fix written, not yet on master; the latest run needed no stand-in |
 | W15 | a zero-length alignment field `[0][N]T` drops N (SQLite's bit vector, on every CREATE TABLE) | fixed on master (batch 309); the latest run needed no stand-in |
 | L1 | an anonymous struct declared inside a function left unnamed | fixed on master |
+| W17 | the array-over-C-memory fixes (W12's) name two anonymous structs declared inside a function before they are lifted | at master the conversion refuses here (exit code 1); fix in progress |
