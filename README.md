@@ -104,18 +104,20 @@ was timed. Peak memory was 23 MB for Go on windows/amd64 and 269 MB for the conv
 
 These are the largest differences we measured on win-x64, and each is a target for future work in go2cs.
 
-- **A contended lock at the native boundary.** In a traced run, the converted program's working thread spent about
-  80% of its time waiting to enter a lock. The waits sit in two places: turning a C function pointer back into a
-  callable delegate (42% of that thread's time) and registering pinned managed memory under a pointer token (24%).
-  SQLite crosses both on nearly every row.
 - **Allocation and garbage collection.** A 20,000-row run allocated 10.6 GB, against a peak heap of 39 MB: short-lived
   objects that stand for C's raw memory. Unsafe pointer values were 39% of the bytes, arrays of `uintptr` 21%, and
   typed views of C structs in native memory about 30%. The run made 1,303 collections, and their pauses were about a
   third of its time.
-- **The finalizer thread.** It was busy for the whole run, finalizing those short-lived objects; a tenth of its time
-  went to cleaning up dynamic methods.
 - **Start-up.** The converted program spends 2.4 s before it does any work, where native Go on windows/amd64 needs
   0.04 s: compiling methods on first call and running the initializers of every package in the closure.
+
+Where the rest of the time goes is not yet measured: the sampling profiler used here attributes time only at safe
+points, and a first fix aimed at what it showed did not change the run time.
+<!-- Corrected 2026-11-20: an earlier version of this list named a contended lock at the native boundary (80% of the
+     working thread, split 42% / 24%) and a busy finalizer thread. Both readings came from a thread-time sampler that
+     stops threads only at safe points; a fix that removed the first lock site moved the sampled wait elsewhere and left
+     the run time unchanged (A 13.0 / 13.7 / 12.7 s, B 13.3 / 13.2 / 13.5 s, 20,000 rows), so they were withdrawn. The
+     garbage-collection figures come from runtime GC events and stand. -->
 <!-- /sqlite-cs:performance -->
 
 ## What is converted
