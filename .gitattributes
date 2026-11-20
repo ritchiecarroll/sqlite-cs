@@ -1,2 +1,4 @@
 * text=auto eol=lf
 LICENSES/** -text
+# the converted C# is stored byte for byte as go2cs emitted it (CRLF), so csharp/MANIFEST.sha256 checks
+csharp/** -text
