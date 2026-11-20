@@ -5,10 +5,11 @@ packages where the class needs a second one), with a green
 control that differs on one axis. Every module runs natively (`go run .` prints the line in its comment). Each class is a
 gap in go2cs, and the fixes go there; this table says what each one does at the go2cs version stated.
 
-Results are at go2cs master `4490a52244`, measured on windows/amd64 by converting each module with `go2cs -recurse`,
-building the C#, running it and comparing its output with Go's. The *Fixed in go2cs* column names the go2cs commit that
-fixes the class, where one has landed on go2cs master; those fixes are not yet re-measured here, so the *At* column
-still reads as measured.
+Every fix named in the *Fixed in go2cs* column is in the go2cs 1.26.11.1 release, and the converted C# published in
+[csharp/](../csharp/) is built with that release and needs no hand stand-in. The *At 4490a52244* column is the failure as
+first measured, on windows/amd64, by converting each module with `go2cs -recurse` at go2cs master `4490a52244`, building
+the C# and comparing its output with Go's; it is kept as the record of each class. The repros themselves have not been
+re-run at the release.
 
 | Row | Class | Repro (red) | At 4490a52244 | Control (green) | Fixed in go2cs | Where it appears in sqlite |
 |---|---|---|---|---|---|---|
@@ -44,29 +45,31 @@ did NOT reproduce their class are kept as negative evidence: `s8b-twotypessameme
 ## Walls met running the demo
 
 With rows S1-S23 fixed, the converted demo was built and run, and each further failure was recorded as a wall. A wall
-is not reduced to a repro here; go2cs's own tests carry the reduction with each fix. Status is at go2cs master
-`0c1d295ea8`. "Stand-in" means the demo runs looked past the wall with a hand rewrite of the converted C#, which is not
-published.
+is not reduced to a repro here; go2cs's own tests carry the reduction with each fix. Every wall below is fixed in the
+go2cs 1.26.11.1 release: the published conversion builds with no stand-in, and both demos print exactly what native Go
+prints, on Windows and on Linux. For W18, 1.26.11.1 needs the `-inline-arrays` option the
+[Reproduce](../README.md#reproduce) recipe gives, and a later go2cs derives it by itself. "Stand-in" meant a hand
+rewrite of the converted C# made to look past a wall during the earlier runs; none was ever published.
 
 | Wall | What it is | Status |
 |---|---|---|
-| W1 | `golang.org/x/sys/windows` refused: a pair of structs, one held inline and one not | fixed on master |
-| W2 | SQLite's `lib` aliases emitted as raw Go: a 64 KB line reader, and a forward alias | fixed on master |
-| W3 (S8) | a direct pointer method on a named result (`mathutil`) | fixed on master |
-| W4 (S10) | libc's `time` members keep their Go names through a renamed import | fixed on master |
-| W5a | an element address names another package's anonymous struct type | fixed on master |
-| W5b | libc's `(*RawMem)(p)[:]` | fixed on master |
-| W6 | an inline-layout attribute emitted without its `using` | fixed on master |
-| W7 | an alias record keeps an unresolved marker (a forward alias chain) | fix written, not yet on master |
-| W8 | SQLite's C string table read through a Go string header needs a base that never moves | stand-in; fix in progress |
-| W9 | a C struct in native memory holding a Go `sync.Mutex` (SQLite's mutex on Windows, libc's pthread mutex on Linux) | stand-in; fix in progress |
-| W9b | a write through `&(*T)(p).F` lands in a copy of the field | stand-in; fix in progress |
-| W10 (S3) | `memcpy` copies into a temporary view | fixed on master |
-| W11 | a renamed standard-library type spelled by its Go name in an interface record (Linux only) | stand-in; fix in progress |
-| W12, W12b | an index, a struct-element read or a whole-array store through an array over C memory | stand-in at the latest run; fixes reached master afterwards: with them W12 has no sites left and W12b 19, not yet run end to end (W17) |
-| W13 | a renamed package variable's address spelled by its raw name | fix written, not yet on master |
-| W14 | a large libc struct kept out of inline arrays reads null fields | fix written, not yet on master; the latest run needed no stand-in |
-| W15 | a zero-length alignment field `[0][N]T` drops N (SQLite's bit vector, on every CREATE TABLE) | fixed on master (batch 309); the latest run needed no stand-in |
-| L1 | an anonymous struct declared inside a function left unnamed | fixed on master |
-| W17 | the array-over-C-memory fixes (W12's) name two anonymous structs declared inside a function before they are lifted | at master the conversion refuses here (exit code 1); fix in progress |
-| W18 | a function stored as a number is recovered with a signature whose struct fields are spelled through aliases, and S23's fix, which matches the fields' spelling rather than their types, makes a second C# type for it; the call then panics | the file-backed demo's WAL pass, Windows only, stops here; fix in progress |
+| W1 | `golang.org/x/sys/windows` refused: a pair of structs, one held inline and one not | fixed in 1.26.11.1 |
+| W2 | SQLite's `lib` aliases emitted as raw Go: a 64 KB line reader, and a forward alias | fixed in 1.26.11.1 |
+| W3 (S8) | a direct pointer method on a named result (`mathutil`) | fixed in 1.26.11.1 |
+| W4 (S10) | libc's `time` members keep their Go names through a renamed import | fixed in 1.26.11.1 |
+| W5a | an element address names another package's anonymous struct type | fixed in 1.26.11.1 |
+| W5b | libc's `(*RawMem)(p)[:]` | fixed in 1.26.11.1 |
+| W6 | an inline-layout attribute emitted without its `using` | fixed in 1.26.11.1 |
+| W7 | an alias record keeps an unresolved marker (a forward alias chain) | fixed in 1.26.11.1 |
+| W8 | SQLite's C string table read through a Go string header needs a base that never moves | fixed in 1.26.11.1 |
+| W9 | a C struct in native memory holding a Go `sync.Mutex` (SQLite's mutex on Windows, libc's pthread mutex on Linux) | fixed in 1.26.11.1 |
+| W9b | a write through `&(*T)(p).F` lands in a copy of the field | fixed in 1.26.11.1 |
+| W10 (S3) | `memcpy` copies into a temporary view | fixed in 1.26.11.1 |
+| W11 | a renamed standard-library type spelled by its Go name in an interface record (Linux only) | fixed in 1.26.11.1 |
+| W12, W12b | an index, a struct-element read or a whole-array store through an array over C memory | fixed in 1.26.11.1 |
+| W13 | a renamed package variable's address spelled by its raw name | fixed in 1.26.11.1 |
+| W14 | a large libc struct kept out of inline arrays reads null fields | fixed in 1.26.11.1 |
+| W15 | a zero-length alignment field `[0][N]T` drops N (SQLite's bit vector, on every CREATE TABLE) | fixed in 1.26.11.1 |
+| L1 | an anonymous struct declared inside a function left unnamed | fixed in 1.26.11.1 |
+| W17 | the array-over-C-memory fixes (W12's) name two anonymous structs declared inside a function before they are lifted | fixed in 1.26.11.1 |
+| W18 | a function stored as a number is recovered with a signature whose struct fields are spelled through aliases, and S23's fix, which matches the fields' spelling rather than their types, makes a second C# type for it; the call then panics | fixed in 1.26.11.1 with `-inline-arrays=modernc.org/libc#largeInteger`; automatic in a later go2cs |
