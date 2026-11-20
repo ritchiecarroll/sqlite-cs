@@ -43,6 +43,11 @@ was timed. Peak memory was 23 MB for Go on windows/amd64 and 269 MB for the conv
 
 These are the largest differences we measured on win-x64, and each is a target for future work in go2cs.
 
+- **Converting between unsafe pointers and numbers.** A CPU profile of a 20,000-row run, taken with Windows' kernel
+  sampler, shows the working thread spending about half its time in the .NET runtime and 12% in go2cs's runtime
+  library, against 11% in the converted SQLite code itself. The runtime is entered mostly from converting
+  `unsafe.Pointer` values to and from `uintptr` numbers in SQLite's bytecode engine (`VdbeExec`), and those
+  conversions create the short-lived objects behind the allocation below.
 - **Allocation and garbage collection.** A 20,000-row run allocated 10.6 GB, against a peak heap of 39 MB: short-lived
   objects that stand for C's raw memory. Unsafe pointer values were 39% of the bytes, arrays of `uintptr` 21%, and
   typed views of C structs in native memory about 30%. The run made 1,303 collections, and their pauses were about a
@@ -50,11 +55,13 @@ These are the largest differences we measured on win-x64, and each is a target f
 - **Start-up.** The converted program spends 2.4 s before it does any work, where native Go on windows/amd64 needs
   0.04 s: compiling methods on first call and running the initializers of every package in the closure.
 
-Where the rest of the time goes is not yet measured: the sampling profiler used here attributes time only at safe
-points, and a first fix aimed at what it showed did not change the run time.
 <!-- Corrected 2026-11-20: an earlier version of this list named a contended lock at the native boundary (80% of the
      working thread, split 42% / 24%) and a busy finalizer thread. Both readings came from a thread-time sampler that
      stops threads only at safe points; a fix that removed the first lock site moved the sampled wait elsewhere and left
      the run time unchanged (A 13.0 / 13.7 / 12.7 s, B 13.3 / 13.2 / 13.5 s, 20,000 rows), so they were withdrawn. The
-     garbage-collection figures come from runtime GC events and stand. -->
+     garbage-collection figures come from runtime GC events and stand. A kernel CPU profile (Windows Performance
+     Recorder, 1 ms samples, 29,211 for the process, CLR method events for managed frames) then showed no lock in the
+     exclusive ranking (System.Collections.Concurrent 0.2%): work thread 19,451 samples = coreclr 49%, golib 12%, the
+     converted SQLite 11%, JIT 6%, kernel 6%; a background thread spent 7,060 samples recompiling hot methods (tiering)
+     on another core; the module initializer 2,192 at start-up. -->
 <!-- /sqlite-cs:performance -->
